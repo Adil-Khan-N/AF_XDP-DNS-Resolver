@@ -1,0 +1,13 @@
+# Compiled binaries
+resolver_asan
+udp_resolver
+*.o
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor / OS junk
+.vscode/
+.DS_Store
+Thumbs.db
