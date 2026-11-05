@@ -90,8 +90,8 @@ int main(int argc, char *argv[]) {
     memset(umem_area, 0, umem_size);
 
     struct xsk_umem *umem = NULL;
-    struct xsk_ring_prod fill_ring;
-    struct xsk_ring_cons comp_ring;
+    struct xsk_ring_prod fill_ring = {0};   /* libxdp does not init cached_prod */
+    struct xsk_ring_cons comp_ring = {0};
 
     struct xsk_umem_config umem_cfg = {
         .fill_size      = XSK_RING_PROD__DEFAULT_NUM_DESCS,
@@ -113,8 +113,8 @@ int main(int argc, char *argv[]) {
      * 2. Create XSK socket
      * ============================================================ */
     struct xsk_socket *xsk = NULL;
-    struct xsk_ring_cons rx_ring;
-    struct xsk_ring_prod tx_ring;
+    struct xsk_ring_cons rx_ring = {0};
+    struct xsk_ring_prod tx_ring = {0};
 
     struct xsk_socket_config xsk_cfg = {
         .rx_size        = XSK_RING_CONS__DEFAULT_NUM_DESCS,
@@ -182,15 +182,16 @@ int main(int argc, char *argv[]) {
     /* ============================================================
      * 4. Pre-fill the FILL ring
      * ============================================================ */
-    __u32 idx;
-    ret = xsk_ring_prod__reserve(&fill_ring, NUM_FRAMES, &idx);
-    if (ret != NUM_FRAMES) {
+    __u32 idx = 0;
+    /* FILL ring holds fill_size (2048) entries, not NUM_FRAMES (4096) */
+    ret = xsk_ring_prod__reserve(&fill_ring, umem_cfg.fill_size, &idx);
+    if (ret != (int)umem_cfg.fill_size) {
         fprintf(stderr, "Could not reserve FILL ring entries\n");
         goto detach;
     }
-    for (__u32 i = 0; i < NUM_FRAMES; i++)
+    for (__u32 i = 0; i < umem_cfg.fill_size; i++)
         *xsk_ring_prod__fill_addr(&fill_ring, idx + i) = i * FRAME_SIZE;
-    xsk_ring_prod__submit(&fill_ring, NUM_FRAMES);
+    xsk_ring_prod__submit(&fill_ring, umem_cfg.fill_size);
 
     /* Kick the FILL ring if needed */
     if (xsk_ring_prod__needs_wakeup(&fill_ring))
